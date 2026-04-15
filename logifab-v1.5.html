@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LOGIFAB | PHYSICS HANDSHAKE v1.5</title>
+    <style>
+        body { background:#000; color:#0ff; font-family:'Courier New',monospace; margin:0; overflow:hidden; }
+        #canvas { position:absolute; top:0; left:0; pointer-events:none; opacity:0.4; }
+        #ui { position:relative; z-index:10; padding:20px; }
+        .box { border:1px solid #0ff; padding:12px; margin-bottom:12px; background:rgba(0,255,255,0.08); }
+        .meter { height:12px; background:#222; border:1px solid #0ff; overflow:hidden; }
+        #fill { height:100%; width:0%; background:#0ff; transition:width 0.1s; }
+        button { background:#0ff; color:#000; border:none; padding:18px; font-weight:bold; width:100%; font-size:18px; margin-bottom:10px; }
+        .warning { background:#f00; color:#000; padding:15px; text-align:center; display:none; margin-bottom:10px; }
+        video { position:fixed; right:0; bottom:0; min-width:100%; min-height:100%; z-index:-1; opacity:0.25; filter:grayscale(1); }
+    </style>
+</head>
+<body>
+<video id="vid" autoplay playsinline muted></video>
+<canvas id="canvas"></canvas>
+
+<div id="ui">
+    <div class="box">STATUS: <span id="status">TAP BUTTON — THIS PAGE MUST BE HTTPS</span></div>
+    <div id="warning" class="warning">BLOCKED — Host on GitHub Pages for HTTPS or reset Chrome → Site settings → Camera + Motion</div>
+    <div class="box">COHERENCE: <span id="score">0.00</span> 
+        <div class="meter"><div id="fill"></div></div>
+    </div>
+    <div class="box">SAMPLES: <span id="samples">0</span>/50</div>
+    <button id="start">REQUEST CAMERA + MOTION — START HANDSHAKE</button>
+</div>
+
+<script>
+const vid = document.getElementById('vid');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', {willReadFrequently:true});
+const statusEl = document.getElementById('status');
+const scoreEl = document.getElementById('score');
+const fill = document.getElementById('fill');
+const samplesEl = document.getElementById('samples');
+const warningEl = document.getElementById('warning');
+
+let accelX = [], accelY = [], flowX = [], flowY = [];
+let peakAccel = 0;
+const WINDOW = 50;
+const THRESH = 0.72;
+let warmup = 0;
+let motionGranted = false;
+
+async function start() {
+    warningEl.style.display = 'none';
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}});
+        vid.srcObject = stream;
+
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            const perm = await DeviceMotionEvent.requestPermission();
+            motionGranted = (perm === 'granted');
+        } else {
+            motionGranted = true;
+        }
+
+        window.addEventListener('devicemotion', onMotion);
+        requestAnimationFrame(loop);
+
+        document.getElementById('start').style.display = 'none';
+        statusEl.textContent = motionGranted ? 'WARMING UP — HOLD PHONE & JITTER' : 'CAMERA OK — MOTION LIMITED (try HTTPS)';
+        statusEl.style.color = motionGranted ? '#0ff' : '#ff0';
+    } catch(e) {
+        console.error(e);
+        warningEl.style.display = 'block';
+        statusEl.textContent = 'PERMISSION BLOCKED — USE HTTPS';
+    }
+}
+
+function onMotion(e) {
+    if (!e.acceleration) return;
+    const ax = e.acceleration.x || 0;
+    const ay = e.acceleration.y || 0;
+    accelX.push(ax); accelY.push(ay);
+    if (accelX.length > WINDOW) { accelX.shift(); accelY.shift(); }
+    peakAccel = Math.max(peakAccel, Math.abs(ax), Math.abs(ay));
+}
+
+let prevPixels = null;
+function loop() {
+    if (vid.readyState >= 2) {
+        canvas.width = 120; canvas.height = 90;
+        ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+        const frame = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+
+        if (prevPixels) {
+            let fx = 0, fy = 0, entropy = 0;
+            for (let i = 0; i < frame.length; i += 16) {
+                const dx = frame[i] - prevPixels[i];
+                const dy = frame[i+1] - prevPixels[i+1];
+                fx += dx; fy += dy;
+                entropy += Math.abs(dx) + Math.abs(dy);
+            }
+            flowX.push(fx / (canvas.width*canvas.height));
+            flowY.push(fy / (canvas.width*canvas.height));
+            if (flowX.length > WINDOW) { flowX.shift(); flowY.shift(); }
+
+            warmup++;
+            samplesEl.textContent = Math.min(warmup, WINDOW);
+
+            if (accelX.length === WINDOW && flowX.length === WINDOW && warmup > 20) {
+                const rx = pearson(accelX, flowX);
+                const ry = pearson(accelY, flowY);
+                let r = (rx + ry) / 2;
+                // No fake boost when motion denied
+                const ent = entropy / (frame.length / 8);
+
+                scoreEl.textContent = r.toFixed(2);
+                fill.style.width = (Math.max(0, r) * 100) + '%';
+
+                if (r > THRESH && ent > 5 && peakAccel > 0.2) {
+                    statusEl.textContent = 'PHYSICS MATCH — LIVE HUMAN';
+                    statusEl.style.color = '#0f0';
+                } else if (r < 0.5 && peakAccel > 0.25) {
+                    statusEl.textContent = 'COHERENCE LOW — POSSIBLE INJECTION';
+                    statusEl.style.color = '#f00';
+                }
+            }
+        }
+        prevPixels = frame.slice();
+    }
+    requestAnimationFrame(loop);
+}
+
+function pearson(a, b) {
+    const n = a.length;
+    if (n === 0) return 0;
+    const ma = a.reduce((s,v)=>s+v,0)/n;
+    const mb = b.reduce((s,v)=>s+v,0)/n;
+    let num=0, da=0, db=0;
+    for(let i=0;i<n;i++){
+        const d1 = a[i]-ma, d2 = b[i]-mb;
+        num += d1*d2; da += d1*d1; db += d2*d2;
+    }
+    const den = Math.sqrt(da*db) || 1;
+    return Math.abs(num/den);
+}
+
+document.getElementById('start').addEventListener('click', start);
+</script>
+</body>
+</html>
