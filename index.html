@@ -5,49 +5,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>LOGIFAB | KINETIC SECURE</title>
     <style>
-        body { background:#0a0a0b; color:#0ff; font-family:'Courier New',monospace; margin:0; overflow:hidden; }
-        #container { position:relative; width:100vw; height:100vh; display:flex; flex-direction:column; }
-        #vid { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:260px; height:260px; object-fit:cover; border-radius:50%; border:4px solid #0ff; box-shadow:0 0 40px #0ff; z-index:2; }
-        #canvas { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:260px; height:260px; border-radius:50%; z-index:1; pointer-events:none; }
-        #ui { position:relative; z-index:10; padding:20px; flex:1; display:flex; flex-direction:column; justify-content:space-between; }
-        .glass { background:rgba(26,26,27,0.85); backdrop-filter:blur(14px); border:1px solid #0ff; border-radius:12px; padding:14px; box-shadow:0 0 25px rgba(0,242,255,0.25); }
-        .ring { width:200px; height:200px; border-radius:50%; margin:0 auto; border:8px solid #222; position:relative; }
+        body { background:#0a0a0b; color:#0ff; font-family:'Courier New',monospace; margin:0; overflow:hidden; height:100vh; display:flex; flex-direction:column; }
+        #viewport { position:relative; width:100%; flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+        #vid { width:260px; height:260px; object-fit:cover; border-radius:50%; border:4px solid #0ff; box-shadow:0 0 40px #0ff; }
+        #canvas { position:absolute; width:260px; height:260px; border-radius:50%; pointer-events:none; }
+        #ui { padding:20px; background:rgba(26,26,27,0.95); backdrop-filter:blur(14px); border-top:1px solid #0ff; }
+        .glass { background:rgba(26,26,27,0.85); backdrop-filter:blur(14px); border:1px solid #0ff; border-radius:12px; padding:14px; margin-bottom:12px; }
+        .ring { width:200px; height:200px; border-radius:50%; margin:0 auto 12px; border:8px solid #222; position:relative; }
         #coherence-ring { position:absolute; top:0; left:0; width:100%; height:100%; border-radius:50%; background:conic-gradient(#0f0 0% var(--progress), #222 var(--progress) 100%); transition:background 0.15s linear; }
-        button { background:#0ff; color:#000; border:none; padding:20px; font-weight:bold; font-size:18px; border-radius:12px; margin-top:auto; }
+        button { background:#0ff; color:#000; border:none; padding:20px; font-weight:bold; font-size:18px; border-radius:12px; width:100%; margin-top:auto; }
         .debug { font-size:13px; color:#ff0; text-align:center; }
-        .title { font-size:11px; letter-spacing:3px; text-align:center; opacity:0.8; }
+        .title { font-size:11px; letter-spacing:3px; text-align:center; opacity:0.8; margin-bottom:8px; }
     </style>
 </head>
 <body>
-<div id="container">
+<div id="viewport">
     <video id="vid" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
+</div>
 
-    <div id="ui">
-        <div class="title">LOGIFAB • KINETIC SECURE</div>
+<div id="ui">
+    <div class="title">LOGIFAB • KINETIC SECURE</div>
 
-        <div class="glass" style="text-align:center;">
-            <div class="ring">
-                <div id="coherence-ring" style="--progress:0%;"></div>
-                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;">
-                    <div id="status" style="font-size:14px;color:#0ff;">1-SECOND MICRO-DRIFT</div>
-                </div>
+    <div class="glass" style="text-align:center;">
+        <div class="ring">
+            <div id="coherence-ring" style="--progress:0%;"></div>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;">
+                <div id="status" style="font-size:14px;color:#0ff;">1-SECOND MICRO-DRIFT</div>
             </div>
         </div>
-
-        <div class="glass">
-            COHERENCE: <span id="score">0.00</span>
-            <div style="height:10px;background:#222;border-radius:6px;overflow:hidden;margin-top:6px;">
-                <div id="fill" style="height:100%;width:0%;background:#0ff;transition:width 0.1s;"></div>
-            </div>
-        </div>
-
-        <div class="glass debug">
-            ACCEL X: <span id="debug-x">0.00</span> FLOW: <span id="debug-flow">0</span>
-        </div>
-
-        <button id="start">START 1-SECOND HANDSHAKE</button>
     </div>
+
+    <div class="glass">
+        COHERENCE: <span id="score">0.00</span>
+        <div style="height:10px;background:#222;border-radius:6px;overflow:hidden;margin-top:6px;">
+            <div id="fill" style="height:100%;width:0%;background:#0ff;transition:width 0.1s;"></div>
+        </div>
+    </div>
+
+    <div class="glass debug">
+        ACCEL X: <span id="debug-x">0.00</span> FLOW: <span id="debug-flow">0</span>
+    </div>
+
+    <button id="start">START 1-SECOND HANDSHAKE</button>
 </div>
 
 <script>
