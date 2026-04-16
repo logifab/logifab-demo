@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LOGIFAB | PHYSICS HANDSHAKE v1.7</title>
+    <title>LOGIFAB | PHYSICS HANDSHAKE v1.9</title>
     <style>
         body { background:#000; color:#0ff; font-family:'Courier New',monospace; margin:0; overflow:hidden; }
         #canvas { position:absolute; top:0; left:0; pointer-events:none; opacity:0.4; }
@@ -28,7 +28,7 @@
         <div class="meter"><div id="fill"></div></div>
     </div>
     <div class="box">SAMPLES: <span id="samples">0</span>/50</div>
-    <div class="debug">ACCEL: <span id="debug-accel">0.00</span><br>FLOW: <span id="debug-flow">0</span></div>
+    <div class="debug">ACCEL X: <span id="debug-x">0.00</span><br>FLOW: <span id="debug-flow">0</span></div>
     <button id="start">REQUEST CAMERA + MOTION — START HANDSHAKE</button>
 </div>
 
@@ -41,12 +41,12 @@ const scoreEl = document.getElementById('score');
 const fill = document.getElementById('fill');
 const samplesEl = document.getElementById('samples');
 const warningEl = document.getElementById('warning');
-const debugAccel = document.getElementById('debug-accel');
+const debugX = document.getElementById('debug-x');
 const debugFlow = document.getElementById('debug-flow');
 
-let accelVals = [], flowVals = [];
-const WINDOW = 50;
-const THRESH = 0.45; // lowered for real phones
+let recentX = [], flowVals = [];
+const WINDOW = 40;
+const THRESH = 0.42;
 
 async function start() {
     warningEl.style.display = 'none';
@@ -62,7 +62,7 @@ async function start() {
         requestAnimationFrame(loop);
 
         document.getElementById('start').style.display = 'none';
-        statusEl.textContent = 'WARMING UP — JITTER PHONE';
+        statusEl.textContent = 'WARMING UP — NATURAL HOLD + SMALL LEFT/RIGHT DRIFT';
     } catch(e) {
         warningEl.style.display = 'block';
         statusEl.textContent = 'PERMISSION BLOCKED';
@@ -71,13 +71,14 @@ async function start() {
 
 function onMotion(e) {
     if (!e.acceleration) return;
-    const val = Math.abs(e.acceleration.x || 0) + Math.abs(e.acceleration.y || 0);
-    accelVals.push(val);
-    if (accelVals.length > WINDOW) accelVals.shift();
-    debugAccel.textContent = val.toFixed(3);
+    const val = Math.abs(e.acceleration.x || 0);
+    recentX.push(val);
+    if (recentX.length > WINDOW) recentX.shift();
+    debugX.textContent = val.toFixed(3);
 }
 
 let prevPixels = null;
+let sampleCount = 0;
 function loop() {
     if (vid.readyState >= 2) {
         canvas.width = 120; canvas.height = 90;
@@ -93,19 +94,22 @@ function loop() {
             if (flowVals.length > WINDOW) flowVals.shift();
             debugFlow.textContent = flow.toFixed(0);
 
-            if (accelVals.length === WINDOW && flowVals.length === WINDOW) {
-                const avgAccel = accelVals.reduce((a,b)=>a+b,0) / WINDOW;
+            sampleCount++;
+            samplesEl.textContent = Math.min(sampleCount, WINDOW) + '/50';
+
+            if (recentX.length === WINDOW && flowVals.length === WINDOW && sampleCount > 15) {
+                const avgX = recentX.reduce((a,b)=>a+b,0) / WINDOW;
                 const avgFlow = flowVals.reduce((a,b)=>a+b,0) / WINDOW;
-                const score = (avgAccel * 0.7 + (avgFlow / 2000) * 0.3);
+                const score = (avgX * 0.85 + (avgFlow / 2500) * 0.15);
 
                 scoreEl.textContent = score.toFixed(2);
-                fill.style.width = Math.min(100, score * 80) + '%';
+                fill.style.width = Math.min(100, score * 120) + '%';
 
                 if (score > THRESH) {
                     statusEl.textContent = 'PHYSICS MATCH — LIVE HUMAN';
                     statusEl.style.color = '#0f0';
                 } else {
-                    statusEl.textContent = 'COHERENCE LOW — JITTER HARDER';
+                    statusEl.textContent = 'COHERENCE LOW — SMALL LEFT/RIGHT DRIFT';
                     statusEl.style.color = '#f00';
                 }
             }
