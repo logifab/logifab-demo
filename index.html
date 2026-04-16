@@ -6,44 +6,48 @@
     <title>LOGIFAB | KINETIC SECURE</title>
     <style>
         body { background:#0a0a0b; color:#0ff; font-family:'Courier New',monospace; margin:0; overflow:hidden; }
-        #canvas { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:240px; height:240px; border-radius:50%; border:3px solid #0ff; box-shadow:0 0 30px #0ff; z-index:1; pointer-events:none; }
-        #vid { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:240px; height:240px; object-fit:cover; border-radius:50%; z-index:2; }
-        #ui { position:relative; z-index:10; padding:20px; height:100vh; display:flex; flex-direction:column; justify-content:space-between; }
-        .glass { background:rgba(26,26,27,0.85); backdrop-filter:blur(12px); border:1px solid #0ff; border-radius:8px; padding:12px; margin-bottom:12px; box-shadow:0 0 20px rgba(0,242,255,0.2); }
-        .ring { width:180px; height:180px; border-radius:50%; position:relative; margin:0 auto; border:6px solid #222; }
-        #coherence-ring { position:absolute; top:0; left:0; width:100%; height:100%; border-radius:50%; background:conic-gradient(#0f0 0% var(--progress), #222 var(--progress) 100%); transition:background 0.2s; }
-        button { background:#0ff; color:#000; border:none; padding:18px; font-weight:bold; width:100%; font-size:18px; margin-bottom:10px; border-radius:8px; }
-        .debug { font-size:13px; color:#ff0; text-align:center; line-height:1.3; }
+        #container { position:relative; width:100vw; height:100vh; display:flex; flex-direction:column; }
+        #vid { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:260px; height:260px; object-fit:cover; border-radius:50%; border:4px solid #0ff; box-shadow:0 0 40px #0ff; z-index:2; }
+        #canvas { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:260px; height:260px; border-radius:50%; z-index:1; pointer-events:none; }
+        #ui { position:relative; z-index:10; padding:20px; flex:1; display:flex; flex-direction:column; justify-content:space-between; }
+        .glass { background:rgba(26,26,27,0.85); backdrop-filter:blur(14px); border:1px solid #0ff; border-radius:12px; padding:14px; box-shadow:0 0 25px rgba(0,242,255,0.25); }
+        .ring { width:200px; height:200px; border-radius:50%; margin:0 auto; border:8px solid #222; position:relative; }
+        #coherence-ring { position:absolute; top:0; left:0; width:100%; height:100%; border-radius:50%; background:conic-gradient(#0f0 0% var(--progress), #222 var(--progress) 100%); transition:background 0.15s linear; }
+        button { background:#0ff; color:#000; border:none; padding:20px; font-weight:bold; font-size:18px; border-radius:12px; margin-top:auto; }
+        .debug { font-size:13px; color:#ff0; text-align:center; }
+        .title { font-size:11px; letter-spacing:3px; text-align:center; opacity:0.8; }
     </style>
 </head>
 <body>
-<video id="vid" autoplay playsinline muted></video>
-<canvas id="canvas"></canvas>
+<div id="container">
+    <video id="vid" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
 
-<div id="ui">
-    <div class="glass" style="text-align:center;font-size:11px;letter-spacing:2px;">LOGIFAB • KINETIC SECURE</div>
-    
-    <div class="glass" style="flex:1;display:flex;align-items:center;justify-content:center;">
-        <div class="ring">
-            <div id="coherence-ring" style="--progress:0%;"></div>
-            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;width:100%;">
-                <div id="status" style="font-size:13px;color:#0ff;">1-SECOND MICRO-DRIFT</div>
+    <div id="ui">
+        <div class="title">LOGIFAB • KINETIC SECURE</div>
+
+        <div class="glass" style="text-align:center;">
+            <div class="ring">
+                <div id="coherence-ring" style="--progress:0%;"></div>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;">
+                    <div id="status" style="font-size:14px;color:#0ff;">1-SECOND MICRO-DRIFT</div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="glass">
-        COHERENCE: <span id="score">0.00</span>
-        <div style="height:8px;background:#222;border-radius:4px;overflow:hidden;margin-top:4px;">
-            <div id="fill" style="height:100%;width:0%;background:#0ff;transition:width 0.1s;"></div>
+        <div class="glass">
+            COHERENCE: <span id="score">0.00</span>
+            <div style="height:10px;background:#222;border-radius:6px;overflow:hidden;margin-top:6px;">
+                <div id="fill" style="height:100%;width:0%;background:#0ff;transition:width 0.1s;"></div>
+            </div>
         </div>
-    </div>
 
-    <div class="glass debug">
-        ACCEL X: <span id="debug-x">0.00</span> FLOW: <span id="debug-flow">0</span>
-    </div>
+        <div class="glass debug">
+            ACCEL X: <span id="debug-x">0.00</span> FLOW: <span id="debug-flow">0</span>
+        </div>
 
-    <button id="start">START 1-SECOND HANDSHAKE</button>
+        <button id="start">START 1-SECOND HANDSHAKE</button>
+    </div>
 </div>
 
 <script>
@@ -54,7 +58,6 @@ const statusEl = document.getElementById('status');
 const scoreEl = document.getElementById('score');
 const fill = document.getElementById('fill');
 const ring = document.getElementById('coherence-ring');
-const samplesEl = document.getElementById('samples'); // not used but kept for future
 const debugX = document.getElementById('debug-x');
 const debugFlow = document.getElementById('debug-flow');
 
@@ -93,7 +96,7 @@ let prevPixels = null;
 let sampleCount = 0;
 function loop() {
     if (vid.readyState >= 2) {
-        canvas.width = 240; canvas.height = 240;
+        canvas.width = 260; canvas.height = 260;
         ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
         const frame = ctx.getImageData(0,0,canvas.width,canvas.height).data;
 
