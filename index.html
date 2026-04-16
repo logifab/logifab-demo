@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LOGIFAB | PHYSICS HANDSHAKE v1.2</title>
+    <title>LOGIFAB | PHYSICS HANDSHAKE v1.7</title>
     <style>
         body { background:#000; color:#0ff; font-family:'Courier New',monospace; margin:0; overflow:hidden; }
         #canvas { position:absolute; top:0; left:0; pointer-events:none; opacity:0.4; }
@@ -11,8 +11,10 @@
         .box { border:1px solid #0ff; padding:12px; margin-bottom:12px; background:rgba(0,255,255,0.08); }
         .meter { height:12px; background:#222; border:1px solid #0ff; overflow:hidden; }
         #fill { height:100%; width:0%; background:#0ff; transition:width 0.1s; }
-        button { background:#0ff; color:#000; border:none; padding:18px; font-weight:bold; width:100%; font-size:18px; }
+        button { background:#0ff; color:#000; border:none; padding:18px; font-weight:bold; width:100%; font-size:18px; margin-bottom:10px; }
+        .warning { background:#f00; color:#000; padding:15px; text-align:center; display:none; margin-bottom:10px; }
         video { position:fixed; right:0; bottom:0; min-width:100%; min-height:100%; z-index:-1; opacity:0.25; filter:grayscale(1); }
+        .debug { font-size:14px; color:#ff0; line-height:1.4; }
     </style>
 </head>
 <body>
@@ -20,12 +22,14 @@
 <canvas id="canvas"></canvas>
 
 <div id="ui">
-    <div class="box">STATUS: <span id="status">READY — TAP TO START</span></div>
+    <div class="box">STATUS: <span id="status">TAP BUTTON — MUST BE HTTPS</span></div>
+    <div id="warning" class="warning">BLOCKED — Reset permissions</div>
     <div class="box">COHERENCE: <span id="score">0.00</span> 
         <div class="meter"><div id="fill"></div></div>
     </div>
     <div class="box">SAMPLES: <span id="samples">0</span>/50</div>
-    <button id="start">INITIATE PHYSICS HANDSHAKE</button>
+    <div class="debug">ACCEL: <span id="debug-accel">0.00</span><br>FLOW: <span id="debug-flow">0</span></div>
+    <button id="start">REQUEST CAMERA + MOTION — START HANDSHAKE</button>
 </div>
 
 <script>
@@ -36,14 +40,16 @@ const statusEl = document.getElementById('status');
 const scoreEl = document.getElementById('score');
 const fill = document.getElementById('fill');
 const samplesEl = document.getElementById('samples');
+const warningEl = document.getElementById('warning');
+const debugAccel = document.getElementById('debug-accel');
+const debugFlow = document.getElementById('debug-flow');
 
-let accelX = [], accelY = [], flowX = [], flowY = [];
-let peakAccel = 0;
+let accelVals = [], flowVals = [];
 const WINDOW = 50;
-const THRESH = 0.75;
-let warmup = 0;
+const THRESH = 0.45; // lowered for real phones
 
 async function start() {
+    warningEl.style.display = 'none';
     try {
         const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}});
         vid.srcObject = stream;
@@ -51,20 +57,24 @@ async function start() {
         if (typeof DeviceMotionEvent.requestPermission === 'function') {
             await DeviceMotionEvent.requestPermission();
         }
+
         window.addEventListener('devicemotion', onMotion);
         requestAnimationFrame(loop);
 
         document.getElementById('start').style.display = 'none';
         statusEl.textContent = 'WARMING UP — JITTER PHONE';
-    } catch(e) { statusEl.textContent = 'ERROR: ' + e.message; }
+    } catch(e) {
+        warningEl.style.display = 'block';
+        statusEl.textContent = 'PERMISSION BLOCKED';
+    }
 }
 
 function onMotion(e) {
-    const ax = e.acceleration ? (e.acceleration.x || 0) : 0;
-    const ay = e.acceleration ? (e.acceleration.y || 0) : 0;
-    accelX.push(ax); accelY.push(ay);
-    if (accelX.length > WINDOW) { accelX.shift(); accelY.shift(); }
-    peakAccel = Math.max(peakAccel, Math.abs(ax), Math.abs(ay));
+    if (!e.acceleration) return;
+    const val = Math.abs(e.acceleration.x || 0) + Math.abs(e.acceleration.y || 0);
+    accelVals.push(val);
+    if (accelVals.length > WINDOW) accelVals.shift();
+    debugAccel.textContent = val.toFixed(3);
 }
 
 let prevPixels = null;
@@ -75,34 +85,27 @@ function loop() {
         const frame = ctx.getImageData(0,0,canvas.width,canvas.height).data;
 
         if (prevPixels) {
-            let fx = 0, fy = 0, entropy = 0;
+            let flow = 0;
             for (let i = 0; i < frame.length; i += 16) {
-                const dx = frame[i] - prevPixels[i];
-                const dy = frame[i+1] - prevPixels[i+1];
-                fx += dx; fy += dy;
-                entropy += Math.abs(dx) + Math.abs(dy);
+                flow += Math.abs(frame[i] - prevPixels[i]);
             }
-            flowX.push(fx / (canvas.width*canvas.height));
-            flowY.push(fy / (canvas.width*canvas.height));
-            if (flowX.length > WINDOW) { flowX.shift(); flowY.shift(); }
+            flowVals.push(flow);
+            if (flowVals.length > WINDOW) flowVals.shift();
+            debugFlow.textContent = flow.toFixed(0);
 
-            warmup++;
-            samplesEl.textContent = Math.min(warmup, WINDOW);
+            if (accelVals.length === WINDOW && flowVals.length === WINDOW) {
+                const avgAccel = accelVals.reduce((a,b)=>a+b,0) / WINDOW;
+                const avgFlow = flowVals.reduce((a,b)=>a+b,0) / WINDOW;
+                const score = (avgAccel * 0.7 + (avgFlow / 2000) * 0.3);
 
-            if (accelX.length === WINDOW && flowX.length === WINDOW && warmup > 20) {
-                const rx = pearson(accelX, flowX);
-                const ry = pearson(accelY, flowY);
-                const r = (rx + ry) / 2;
-                const ent = entropy / (frame.length / 8);
+                scoreEl.textContent = score.toFixed(2);
+                fill.style.width = Math.min(100, score * 80) + '%';
 
-                scoreEl.textContent = r.toFixed(2);
-                fill.style.width = (Math.max(0, r) * 100) + '%';
-
-                if (r > THRESH && ent > 6 && peakAccel > 0.3) {
+                if (score > THRESH) {
                     statusEl.textContent = 'PHYSICS MATCH — LIVE HUMAN';
                     statusEl.style.color = '#0f0';
-                } else if (r < 0.4 && peakAccel > 0.5) {
-                    statusEl.textContent = 'INJECTION SUSPECTED';
+                } else {
+                    statusEl.textContent = 'COHERENCE LOW — JITTER HARDER';
                     statusEl.style.color = '#f00';
                 }
             }
@@ -110,20 +113,6 @@ function loop() {
         prevPixels = frame.slice();
     }
     requestAnimationFrame(loop);
-}
-
-function pearson(a, b) {
-    const n = a.length;
-    if (n === 0) return 0;
-    const ma = a.reduce((s,v)=>s+v,0)/n;
-    const mb = b.reduce((s,v)=>s+v,0)/n;
-    let num=0, da=0, db=0;
-    for(let i=0;i<n;i++){
-        const d1 = a[i]-ma, d2 = b[i]-mb;
-        num += d1*d2; da += d1*d1; db += d2*d2;
-    }
-    const den = Math.sqrt(da*db);
-    return den===0 ? 0 : Math.abs(num/den);
 }
 
 document.getElementById('start').addEventListener('click', start);
