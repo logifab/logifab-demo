@@ -1,38 +1,30 @@
 <!DOCTYPE html>
-<html lang='en'>
+<html lang="en">
 <head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>Physics Handshake</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics Handshake v1.5</title>
     <style>
+        /* Add your CSS styles here */
         body {
             font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 20px;
         }
-        canvas {
-            border: 1px solid #000;
+        h1 {
+            color: #333;
         }
-        /* Add additional styles here */
     </style>
 </head>
 <body>
-    <h1>Physics Handshake Simulation</h1>
-    <canvas id='simulationCanvas' width='800' height='600'></canvas>
-    <video id='introVideo' width='320' height='240' controls>
-        <source src='intro.mp4' type='video/mp4'>
-        Your browser does not support the video tag.
-    </video>
+    <h1>Physics Handshake v1.5</h1>
     <script>
-        // JavaScript logic for the Physics Handshake
-        const canvas = document.getElementById('simulationCanvas');
-        const ctx = canvas.getContext('2d');
-        // Logic to implement physics handshake goes here
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // Drawing logic goes here
-            requestAnimationFrame(draw);
+        // Add your JavaScript code here
+        function init() {
+            console.log("Physics Handshake Initialized");
         }
-        draw();
+        window.onload = init;
     </script>
 </body>
 </html>
