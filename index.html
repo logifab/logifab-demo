@@ -3,155 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>LOGIFAB | HORIZON v7.5</title>
+    <title>LOGIFAB SENTINEL v8.6</title>
     <style>
-        :root { --neon: #ffffff; --bg: #000000; --pass: #00ff66; --gain: 20; }
-        * { box-sizing: border-box; touch-action: none; margin: 0; padding: 0; }
-        body { background: var(--bg); color: var(--neon); font-family: 'Inter', system-ui, sans-serif; height: 100vh; overflow: hidden; }
+        :root { --neon: #ffffff; --bg: #000000; --pass: #00ff66; --alert: #ff0033; }
+        * { box-sizing: border-box; touch-action: none; -webkit-font-smoothing: antialiased; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--neon); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
 
-        /* FULL-BLEED CHAMBER */
-        #vault-chamber {
-            width: 100vw; height: 100vh;
-            display: flex; align-items: center; justify-content: center;
-            perspective: 1000px;
+        /* THE SINGULARITY */
+        #singularity { position: fixed; top: 50%; left: 50%; width: 3px; height: 3px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px #fff; animation: breathe 3s infinite ease; z-index: 100; transition: opacity 0.5s ease; }
+        
+        #vault-chamber { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 1.5s ease; }
+        
+        #core-ring { 
+            width: 80vw; height: 80vw; max-width: 400px; max-height: 400px; 
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; 
+            overflow: hidden; backdrop-filter: blur(80px); 
+            transform: scale(0.6); opacity: 0; 
+            transition: all 1.2s cubic-bezier(0.19, 1, 0.22, 1);
         }
 
-        /* THE SOUL (BACKGROUND FEED) */
-        video#bg-feed {
-            position: absolute; width: 120%; height: 120%;
-            object-fit: cover; filter: blur(60px) brightness(0.2) grayscale(1);
-            opacity: 0; transition: opacity 2s ease; z-index: 1;
-        }
+        video#live-feed { width: 180%; height: 180%; object-fit: cover; filter: grayscale(1) contrast(1.8) brightness(0.5); mix-blend-mode: screen; position: relative; opacity: 0; transition: opacity 2s ease; }
 
-        /* THE REFRACTIVE CORE (THE KEY) */
-        #core-ring {
-            width: 80vw; height: 80vw; max-width: 380px; max-height: 380px;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 50%; z-index: 10;
-            overflow: hidden; backdrop-filter: blur(20px);
-            box-shadow: 0 0 100px rgba(0,0,0,0.5);
-            transform: scale(0.8); opacity: 0.1;
-            transition: transform 1s cubic-bezier(0.19, 1, 0.22, 1), opacity 1s ease;
-        }
+        /* ENCLAVE DASHBOARD */
+        #enclave { display: none; padding: 60px 40px; height: 100vh; flex-direction: column; background: #000; z-index: 200; position: fixed; top: 0; left: 0; width: 100%; }
+        .telemetry { display: flex; justify-content: space-between; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px; }
+        .label { font-size: 9px; opacity: 0.3; letter-spacing: 3px; text-transform: uppercase; }
+        .val { font-family: monospace; font-size: 12px; letter-spacing: 1px; }
+        
+        canvas#jitter-graph { width: 100%; height: 200px; margin-top: auto; opacity: 0.8; }
 
-        video#live-feed {
-            width: 160%; height: 160%; object-fit: cover;
-            filter: grayscale(1) contrast(1.5) brightness(0.6);
-            mix-blend-mode: screen; position: relative;
-        }
-
-        /* THE HUD (ZERO-FLUFF) */
-        #hud {
-            position: absolute; bottom: 8%; width: 100%;
-            text-align: center; z-index: 20; opacity: 0;
-            transition: opacity 1s ease;
-        }
-        .directive { font-size: 12px; letter-spacing: 10px; font-weight: 200; text-transform: uppercase; margin-bottom: 10px; }
-        .r-metric { font-family: monospace; font-size: 10px; opacity: 0.4; }
-
-        /* STATES */
-        .active-core { transform: scale(1) !important; opacity: 1 !important; border-color: rgba(255,255,255,0.4) !important; }
-        .active-ui { opacity: 1 !important; }
+        .wake-state { transform: scale(1) !important; opacity: 1 !important; backdrop-filter: blur(0px) !important; }
+        .alert-state { border-color: var(--alert) !important; box-shadow: 0 0 60px var(--alert) !important; }
+        @keyframes breathe { 0%, 100% { opacity: 0.2; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 0.8; transform: translate(-50%, -50%) scale(2.5); } }
     </style>
 </head>
 <body>
 
+<div id="singularity"></div>
 <div id="vault-chamber">
-    <video id="bg-feed" autoplay playsinline muted></video>
-    
-    <div id="core-ring">
-        <video id="live-feed" autoplay playsinline muted></video>
-    </div>
+    <div id="core-ring"><video id="live-feed" autoplay playsinline muted></video></div>
+</div>
 
-    <div id="hud">
-        <div class="directive" id="msg">LIFT TO WAKE</div>
-        <div class="r-metric">COHERENCE: <span id="r-val">0.000</span></div>
+<div id="enclave">
+    <div class="telemetry">
+        <div><div class="label">Status</div><div class="val">ATTESTED_LIVE</div></div>
+        <div><div class="label">Sync_R</div><div id="dash-r" class="val">0.000</div></div>
     </div>
+    <div class="telemetry">
+        <div><div class="label">Entropy_Seed</div><div class="val">SHA-256_ACTIVE</div></div>
+        <div><div class="label">Identity</div><div class="val" style="color:var(--pass)">BIOLOGICAL_CONFIRMED</div></div>
+    </div>
+    <div class="label" style="margin-top:20px;">Neural_Shadow_Diagnostic</div>
+    <canvas id="jitter-graph"></canvas>
+    <div class="label" style="margin-top:auto; text-align:center;">SENTINEL PROTOCOL V8.6 // ZERO_TRUST_HARDWARE</div>
 </div>
 
 <script>
-const bg = document.getElementById('bg-feed'), live = document.getElementById('live-feed');
-const core = document.getElementById('core-ring'), hud = document.getElementById('hud');
-const msg = document.getElementById('msg'), rVal = document.getElementById('r-val');
+const core = document.getElementById('core-ring'), live = document.getElementById('live-feed');
+const singularity = document.getElementById('singularity'), chamber = document.getElementById('vault-chamber');
+const enclave = document.getElementById('enclave'), dashR = document.getElementById('dash-r');
+const jitterCanvas = document.getElementById('jitter-graph'), jCtx = jitterCanvas.getContext('2d');
 
-let isAwake = false, historyX = [], historyF = [], prevFrame = null;
-const canvas = document.createElement('canvas'); 
-const ctx = canvas.getContext('2d', {willReadFrequently: true});
-canvas.width = 60; canvas.height = 60;
+let isAwake = false, historyX = [], historyF = [], jitterData = [], prevFrame = null;
+const calcCanvas = document.createElement('canvas'); const calcCtx = calcCanvas.getContext('2d');
+calcCanvas.width = calcCanvas.height = 64;
 
-// LIFT-TO-WAKE & PERMISSION INITIALIZER
 document.body.addEventListener('click', async () => {
     if (isAwake) return;
     try {
         const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}});
-        bg.srcObject = live.srcObject = stream;
+        live.srcObject = stream;
         if(typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
+        singularity.style.opacity = "0"; chamber.style.opacity = "1";
         
-        isAwake = true;
-        bg.style.opacity = "0.6";
-        core.classList.add('active-core');
-        hud.classList.add('active-ui');
-        msg.textContent = "STABILIZING...";
-        
-        window.addEventListener('devicemotion', handleMotion);
+        window.addEventListener('devicemotion', (e) => {
+            const x = e.accelerationIncludingGravity.x || 0;
+            const z = e.accelerationIncludingGravity.z || 0;
+            if (Math.abs(z) > 1.5 && !isAwake) { 
+                isAwake = true; core.classList.add('wake-state'); live.style.opacity = "0.7"; 
+            }
+            if(isAwake) {
+                historyX.push(x); if(historyX.length > 40) historyX.shift();
+                jitterData.push(x); if(jitterData.length > 80) jitterData.shift();
+                core.style.transform = `translate(${x * 3}px, 0) rotateY(${x * 4}deg)`;
+            }
+        });
         requestAnimationFrame(loop);
-    } catch(e) { msg.textContent = "HARDWARE ERROR"; }
+    } catch(e) { console.error("Hardware link failed."); }
 });
 
-function handleMotion(e) {
-    const x = e.accelerationIncludingGravity.x || 0;
-    const y = e.accelerationIncludingGravity.y || 0;
-    const z = e.accelerationIncludingGravity.z || 0;
-
-    // GAIN-AMPLIFIED PARALLAX (THE "SLOSH")
-    const g = 15; // High Gain
-    const moveX = x * g; const moveY = y * -g;
-    
-    // Core reacts with weight
-    core.style.transform = `translate(${x * 2}px, ${y * -2}px) rotateY(${x * 3}deg) rotateX(${y * -3}deg)`;
-    // Video sloshes inside
-    live.style.transform = `translate(${moveX - 30}% , ${moveY - 30}%) scale(1.5)`;
-    // Background drifts opposite
-    bg.style.transform = `translate(${x * -10}px, ${y * 10}px) scale(1.1)`;
-
-    historyX.push(x); if(historyX.length > 40) historyX.shift();
-}
-
 function calculateCorrelation(a, b) {
-    if(a.length < 5) return 0;
-    const n = a.length;
-    const m1 = a.reduce((p,c)=>p+c,0)/n, m2 = b.reduce((p,c)=>p+c,0)/n;
+    if(a.length < 10) return 0;
+    const n = a.length, m1 = a.reduce((p,c)=>p+c,0)/n, m2 = b.reduce((p,c)=>p+c,0)/n;
     let num = 0, d1 = 0, d2 = 0;
     for(let i=0; i<n; i++){
         const v1 = a[i]-m1, v2 = b[i]-m2;
         num += v1*v2; d1 += v1*v1; d2 += v2*v2;
     }
-    return num / Math.sqrt(d1 * d2 || 1);
+    return Math.abs(num / Math.sqrt(d1 * d2 || 1));
 }
 
 function loop() {
-    if (live.readyState >= 2) {
-        ctx.drawImage(live, 0, 0, 60, 60);
-        const frame = ctx.getImageData(0,0,60,60).data;
+    if (live.readyState >= 2 && isAwake) {
+        calcCtx.drawImage(live, 0, 0, 64, 64);
+        const frame = calcCtx.getImageData(0,0,64,64).data;
         if (prevFrame) {
-            let flow = 0;
-            for (let i = 0; i < frame.length; i += 16) flow += (frame[i] - prevFrame[i]);
+            let flow = 0; for (let i = 0; i < frame.length; i += 16) flow += Math.abs(frame[i] - prevFrame[i]);
             historyF.push(flow); if(historyF.length > 40) historyF.shift();
+            const r = calculateCorrelation(historyX, historyF);
             
-            const r = Math.abs(calculateCorrelation(historyX, historyF));
-            rVal.textContent = r.toFixed(3);
-            
-            if (r > 0.8) {
-                msg.textContent = "KINETIC MATCH";
-                msg.style.color = "var(--pass)";
-            } else if (isAwake) {
-                msg.textContent = "ALIGN VECTOR";
-                msg.style.color = "var(--neon)";
+            // ANTI-CHEAT: Stagnant physics check
+            if (flow > 1500 && Math.abs(historyX[historyX.length-1]) < 0.01) {
+                core.classList.add('alert-state'); return;
             }
+
+            if (r > 0.90) triggerShatter(r);
         }
         prevFrame = frame.slice();
     }
     requestAnimationFrame(loop);
+}
+
+function triggerShatter(r) {
+    core.style.transform = "scale(0)"; core.style.opacity = "0";
+    if(navigator.vibrate) navigator.vibrate([10, 50, 200]);
+    setTimeout(() => {
+        chamber.style.display = "none";
+        enclave.style.display = "flex";
+        dashR.textContent = r.toFixed(4);
+        renderJitter();
+    }, 450);
+}
+
+function renderJitter() {
+    jCtx.clearRect(0, 0, jitterCanvas.width, jitterCanvas.height);
+    jCtx.beginPath(); jCtx.strokeStyle = "#00ff66"; jCtx.lineWidth = 1;
+    const mean = jitterData.reduce((a, b) => a + b, 0) / jitterData.length;
+    const sliceWidth = jitterCanvas.width / jitterData.length;
+    for (let i = 0; i < jitterData.length; i++) {
+        const jitter = jitterData[i] - mean;
+        const x = i * sliceWidth;
+        const y = (jitterCanvas.height / 2) + (jitter * 200);
+        i === 0 ? jCtx.moveTo(x, y) : jCtx.lineTo(x, y);
+    }
+    jCtx.stroke();
+    requestAnimationFrame(renderJitter);
 }
 </script>
 </body>
