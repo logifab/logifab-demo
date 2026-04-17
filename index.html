@@ -3,182 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>LOGIFAB | KINETIC VAULT v7.0</title>
+    <title>LOGIFAB | HORIZON v7.5</title>
     <style>
-        :root { --neon: #ffffff; --bg: #000000; --blur: blur(15px); --pass: #00ff66; }
-        * { box-sizing: border-box; touch-action: none; -webkit-font-smoothing: antialiased; }
-        body { background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; margin: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
-        
-        /* THE GLASS CHAMBER */
-        #vault-chamber { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 50%, #111 0%, #000 80%); transition: opacity 0.5s ease; }
+        :root { --neon: #ffffff; --bg: #000000; --pass: #00ff66; --gain: 20; }
+        * { box-sizing: border-box; touch-action: none; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--neon); font-family: 'Inter', system-ui, sans-serif; height: 100vh; overflow: hidden; }
 
-        /* THE PROGRESS RING */
-        #sync-ring { position: absolute; width: 310px; height: 310px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.05); border-top: 2px solid var(--neon); transition: transform 0.1s linear, box-shadow 0.2s; opacity: 0.8; z-index: 5; }
+        /* FULL-BLEED CHAMBER */
+        #vault-chamber {
+            width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            perspective: 1000px;
+        }
 
-        /* THE LIQUID CORE */
-        #core-ring { width: 260px; height: 260px; border: 1px solid rgba(255,255,255,0.15); backdrop-filter: var(--blur); border-radius: 50%; box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 0 30px rgba(255,255,255,0.05); transition: transform 0.08s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s; display: flex; align-items: center; justify-content: center; overflow: hidden; z-index: 10; }
-        
-        /* THE VIDEO SLOSH */
-        video#live-feed { width: 150%; height: 150%; object-fit: cover; filter: grayscale(1) contrast(1.4) brightness(0.7); mix-blend-mode: screen; transition: transform 0.08s linear; }
+        /* THE SOUL (BACKGROUND FEED) */
+        video#bg-feed {
+            position: absolute; width: 120%; height: 120%;
+            object-fit: cover; filter: blur(60px) brightness(0.2) grayscale(1);
+            opacity: 0; transition: opacity 2s ease; z-index: 1;
+        }
 
-        /* THE SNAP STATE */
-        .snapped { transform: rotateX(0deg) rotateY(0deg) scale(0.95) !important; border-color: var(--pass) !important; box-shadow: 0 0 80px rgba(0,255,102,0.3), inset 0 0 40px rgba(0,255,102,0.2) !important; }
+        /* THE REFRACTIVE CORE (THE KEY) */
+        #core-ring {
+            width: 80vw; height: 80vw; max-width: 380px; max-height: 380px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50%; z-index: 10;
+            overflow: hidden; backdrop-filter: blur(20px);
+            box-shadow: 0 0 100px rgba(0,0,0,0.5);
+            transform: scale(0.8); opacity: 0.1;
+            transition: transform 1s cubic-bezier(0.19, 1, 0.22, 1), opacity 1s ease;
+        }
 
-        /* MINIMALIST DASHBOARD (POST-UNLOCK) */
-        #dashboard { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 40px; flex-direction: column; justify-content: center; z-index: 50; background: #000; }
-        .dash-title { font-size: 14px; opacity: 0.5; letter-spacing: 4px; margin-bottom: 20px; }
-        .dash-stat { font-size: 48px; font-weight: 300; margin-bottom: 5px; }
-        .dash-label { font-size: 10px; color: var(--pass); letter-spacing: 2px; margin-bottom: 30px; }
+        video#live-feed {
+            width: 160%; height: 160%; object-fit: cover;
+            filter: grayscale(1) contrast(1.5) brightness(0.6);
+            mix-blend-mode: screen; position: relative;
+        }
 
-        /* HUD */
-        #challenge-hud { position: absolute; top: 10%; width: 100%; text-align: center; z-index: 20; }
-        .cmd-text { font-size: 18px; font-weight: 300; letter-spacing: 6px; }
+        /* THE HUD (ZERO-FLUFF) */
+        #hud {
+            position: absolute; bottom: 8%; width: 100%;
+            text-align: center; z-index: 20; opacity: 0;
+            transition: opacity 1s ease;
+        }
+        .directive { font-size: 12px; letter-spacing: 10px; font-weight: 200; text-transform: uppercase; margin-bottom: 10px; }
+        .r-metric { font-family: monospace; font-size: 10px; opacity: 0.4; }
 
-        #ignite-btn { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 80%; padding: 20px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.2); font-size: 14px; letter-spacing: 3px; cursor: pointer; backdrop-filter: blur(5px); z-index: 30; }
+        /* STATES */
+        .active-core { transform: scale(1) !important; opacity: 1 !important; border-color: rgba(255,255,255,0.4) !important; }
+        .active-ui { opacity: 1 !important; }
     </style>
 </head>
 <body>
 
 <div id="vault-chamber">
-    <div id="challenge-hud" style="display:none;">
-        <div class="cmd-text" id="cmd-directive">AWAITING VECTOR</div>
-    </div>
-    
-    <div id="sync-ring"></div>
+    <video id="bg-feed" autoplay playsinline muted></video>
     
     <div id="core-ring">
         <video id="live-feed" autoplay playsinline muted></video>
     </div>
-</div>
 
-<div id="dashboard">
-    <div class="dash-title">LOGIFAB SECURE ENCLAVE</div>
-    <div class="dash-stat" id="final-r">0.000</div>
-    <div class="dash-label">PEARSON COHERENCE ATTESTED</div>
-    <div class="dash-stat">12ms</div>
-    <div class="dash-label">SENSOR-FLOW LATENCY</div>
-    <div class="dash-stat" style="font-size: 24px;">HARDWARE</div>
-    <div class="dash-label">ROOT OF TRUST VERIFIED</div>
+    <div id="hud">
+        <div class="directive" id="msg">LIFT TO WAKE</div>
+        <div class="r-metric">COHERENCE: <span id="r-val">0.000</span></div>
+    </div>
 </div>
-
-<button id="ignite-btn">ENGAGE VAULT</button>
 
 <script>
-const vLive = document.getElementById('live-feed'), btn = document.getElementById('ignite-btn');
-const coreRing = document.getElementById('core-ring'), syncRing = document.getElementById('sync-ring');
-const cmdDirective = document.getElementById('cmd-directive'), hud = document.getElementById('challenge-hud');
-const vaultChamber = document.getElementById('vault-chamber'), dashboard = document.getElementById('dashboard');
-const finalR = document.getElementById('final-r');
+const bg = document.getElementById('bg-feed'), live = document.getElementById('live-feed');
+const core = document.getElementById('core-ring'), hud = document.getElementById('hud');
+const msg = document.getElementById('msg'), rVal = document.getElementById('r-val');
 
-const canvas = document.createElement('canvas'); canvas.width = 60; canvas.height = 60;
+let isAwake = false, historyX = [], historyF = [], prevFrame = null;
+const canvas = document.createElement('canvas'); 
 const ctx = canvas.getContext('2d', {willReadFrequently: true});
+canvas.width = 60; canvas.height = 60;
 
-let historyX = [], historyF = [], prevFrame = null;
-let challengeActive = false, requiredVector = 0;
-let isUnlocked = false;
-const WINDOW = 40;
-
-function calculateCorrelation(arr1, arr2) {
-    if(arr1.length === 0 || arr2.length === 0) return 0;
-    const n = arr1.length;
-    const mean1 = arr1.reduce((a,b)=>a+b,0)/n, mean2 = arr2.reduce((a,b)=>a+b,0)/n;
-    let num = 0, den1 = 0, den2 = 0;
-    for(let i=0; i<n; i++){
-        const d1 = arr1[i]-mean1, d2 = arr2[i]-mean2;
-        num += d1*d2; den1 += d1*d1; den2 += d2*d2;
-    }
-    const den = Math.sqrt(den1 * den2);
-    return den === 0 ? 0 : num / den;
-}
-
-async function startVault() {
+// LIFT-TO-WAKE & PERMISSION INITIALIZER
+document.body.addEventListener('click', async () => {
+    if (isAwake) return;
     try {
         const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}});
-        vLive.srcObject = stream;
+        bg.srcObject = live.srcObject = stream;
         if(typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
         
-        window.addEventListener('devicemotion', (e) => {
-            if(!challengeActive || isUnlocked) return;
-            const x = e.accelerationIncludingGravity.x || 0;
-            const y = e.accelerationIncludingGravity.y || 0;
-            
-            historyX.push(x); if(historyX.length > WINDOW) historyX.shift();
-            
-            // INERTIAL DRIFT PHYSICS
-            const moveX = x * 6; const moveY = y * -6;
-            vLive.style.transform = `translate(${moveX}px, ${moveY}px) scale(1.4)`;
-            
-            // TACTILE VAULT ROTATION
-            coreRing.style.transform = `rotateY(${x * 4}deg) rotateX(${y * -4}deg)`;
-            syncRing.style.transform = `rotate(${x * 15}deg)`;
-        });
-
-        btn.style.display = 'none';
-        issueChallenge();
+        isAwake = true;
+        bg.style.opacity = "0.6";
+        core.classList.add('active-core');
+        hud.classList.add('active-ui');
+        msg.textContent = "STABILIZING...";
+        
+        window.addEventListener('devicemotion', handleMotion);
         requestAnimationFrame(loop);
-    } catch(e) { cmdDirective.textContent = "HARDWARE BLOCKED"; }
+    } catch(e) { msg.textContent = "HARDWARE ERROR"; }
+});
+
+function handleMotion(e) {
+    const x = e.accelerationIncludingGravity.x || 0;
+    const y = e.accelerationIncludingGravity.y || 0;
+    const z = e.accelerationIncludingGravity.z || 0;
+
+    // GAIN-AMPLIFIED PARALLAX (THE "SLOSH")
+    const g = 15; // High Gain
+    const moveX = x * g; const moveY = y * -g;
+    
+    // Core reacts with weight
+    core.style.transform = `translate(${x * 2}px, ${y * -2}px) rotateY(${x * 3}deg) rotateX(${y * -3}deg)`;
+    // Video sloshes inside
+    live.style.transform = `translate(${moveX - 30}% , ${moveY - 30}%) scale(1.5)`;
+    // Background drifts opposite
+    bg.style.transform = `translate(${x * -10}px, ${y * 10}px) scale(1.1)`;
+
+    historyX.push(x); if(historyX.length > 40) historyX.shift();
 }
 
-function issueChallenge() {
-    historyX = []; historyF = [];
-    const dir = Math.random() > 0.5 ? 1 : -1;
-    requiredVector = dir * 3; 
-    cmdDirective.textContent = dir > 0 ? "VECTOR: LEFT" : "VECTOR: RIGHT";
-    hud.style.display = 'block';
-    challengeActive = true;
-}
-
-function unlockSequence(correlation) {
-    isUnlocked = true;
-    challengeActive = false;
-    
-    // 1. THE MAGNETIC SNAP
-    coreRing.classList.add('snapped');
-    syncRing.style.borderColor = "var(--pass)";
-    cmdDirective.textContent = "ATTESTED";
-    
-    // 2. HAPTIC CLICK (Safe Dial snapping open)
-    if(navigator.vibrate) navigator.vibrate([50, 100, 50]);
-
-    // 3. TRANSITION TO DASHBOARD
-    setTimeout(() => {
-        vaultChamber.style.opacity = '0';
-        setTimeout(() => {
-            vaultChamber.style.display = 'none';
-            dashboard.style.display = 'flex';
-            finalR.textContent = correlation.toFixed(4);
-        }, 500);
-    }, 1200);
+function calculateCorrelation(a, b) {
+    if(a.length < 5) return 0;
+    const n = a.length;
+    const m1 = a.reduce((p,c)=>p+c,0)/n, m2 = b.reduce((p,c)=>p+c,0)/n;
+    let num = 0, d1 = 0, d2 = 0;
+    for(let i=0; i<n; i++){
+        const v1 = a[i]-m1, v2 = b[i]-m2;
+        num += v1*v2; d1 += v1*v1; d2 += v2*v2;
+    }
+    return num / Math.sqrt(d1 * d2 || 1);
 }
 
 function loop() {
-    if (vLive.readyState >= 2 && challengeActive) {
-        ctx.drawImage(vLive, 0, 0, 60, 60);
+    if (live.readyState >= 2) {
+        ctx.drawImage(live, 0, 0, 60, 60);
         const frame = ctx.getImageData(0,0,60,60).data;
-
         if (prevFrame) {
-            let flowX = 0;
-            for (let i = 0; i < frame.length; i += 16) flowX += (frame[i] - prevFrame[i]); 
-            historyF.push(flowX); if(historyF.length > WINDOW) historyF.shift();
-
-            if (historyX.length === WINDOW) {
-                const currentR = Math.abs(calculateCorrelation(historyX, historyF));
-                const currentX = historyX[historyX.length-1];
-                
-                // VECTOR INTENT LOGIC
-                const intentMatch = (requiredVector > 0 && currentX > 2.5) || (requiredVector < 0 && currentX < -2.5);
-                
-                if (intentMatch && currentR > 0.85) {
-                    unlockSequence(currentR);
-                }
+            let flow = 0;
+            for (let i = 0; i < frame.length; i += 16) flow += (frame[i] - prevFrame[i]);
+            historyF.push(flow); if(historyF.length > 40) historyF.shift();
+            
+            const r = Math.abs(calculateCorrelation(historyX, historyF));
+            rVal.textContent = r.toFixed(3);
+            
+            if (r > 0.8) {
+                msg.textContent = "KINETIC MATCH";
+                msg.style.color = "var(--pass)";
+            } else if (isAwake) {
+                msg.textContent = "ALIGN VECTOR";
+                msg.style.color = "var(--neon)";
             }
         }
         prevFrame = frame.slice();
     }
-    if(challengeActive) requestAnimationFrame(loop);
+    requestAnimationFrame(loop);
 }
-
-btn.addEventListener('click', startVault);
 </script>
 </body>
 </html>
