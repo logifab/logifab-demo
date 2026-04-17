@@ -1,84 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>LOGIFAB | SENTINEL v10.0</title>
     <style>
-        body { background: #000; color: #fff; font-family: monospace; margin: 0; overflow: hidden; height: 100vh; display: flex; align-items: center; justify-content: center; }
-        #terminal { font-size: 10px; line-height: 1.5; width: 90%; }
-        #flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: none; z-index: 100; }
-        video { display: none; } /* Zero visual feed - purely for data processing */
+        body { background: #000; margin: 0; overflow: hidden; touch-action: none; }
+        canvas { display: block; filter: contrast(1.8) blur(1px) brightness(1.2); }
+        #overlay { position: fixed; top: 40px; width: 100%; text-align: center; color: #fff; letter-spacing: 10px; font-size: 9px; opacity: 0.2; font-family: monospace; }
     </style>
 </head>
 <body>
-
-<div id="flash"></div>
-<div id="terminal">
-    <div>LOGIFAB_HARDWARE_ATTESATION_v10.0</div>
-    <div id="status">TAP_TO_INITIALIZE_KERNEL</div>
-    <br>
-    <div>PEARSON_R: <span id="r-val">0.000</span></div>
-    <div>VECTOR_X: <span id="x-val">0.00</span></div>
-</div>
-
-<video id="v" autoplay playsinline muted></video>
+    <div id="overlay">NEURAL_RESONANCE_v11.6</div>
+    <canvas id="c"></canvas>
 
 <script>
-const status = document.getElementById('status'), rVal = document.getElementById('r-val');
-const xVal = document.getElementById('x-val'), flash = document.getElementById('flash'), v = document.getElementById('v');
-const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32;
-const ctx = canvas.getContext('2d', {willReadFrequently: true});
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+let w, h, ripples = [], isLive = false, coherenceCount = 0;
 
-let isLive = false, historyX = [], historyF = [], prevF = null;
+window.onresize = () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; };
+window.onresize();
 
 document.body.onclick = async () => {
-    if (isLive) return;
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}});
-        v.srcObject = stream;
-        if(typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
+    if (typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
+    isLive = true;
+    window.addEventListener('devicemotion', e => {
+        const x = e.acceleration.x || 0;
+        const y = e.acceleration.y || 0;
+        const force = Math.sqrt(x*x + y*y);
         
-        isLive = true;
-        status.textContent = "KERNEL_LIVE: MOVE_DEVICE_FOR_SYNC";
-        window.addEventListener('devicemotion', e => {
-            const x = e.accelerationIncludingGravity.x || 0;
-            historyX.push(x); if(historyX.length > 30) historyX.shift();
-            xVal.textContent = x.toFixed(2);
-        });
-        requestAnimationFrame(loop);
-    } catch(e) { status.textContent = "HARDWARE_REJECTED"; }
+        // 8-12Hz Filter Simulation: Create ripples only on human-jitter delta
+        if (force > 0.08 && force < 0.3) {
+            ripples.push({ x: w/2, y: h/2, r: 0, a: 0.8, v: force * 8, color: '255, 255, 255' });
+            coherenceCount++;
+            
+            // THE MECHANICAL CLICK: Tactile confirmation of the shadow
+            if (coherenceCount % 5 === 0 && navigator.vibrate) navigator.vibrate(10);
+        }
+    });
+    draw();
 };
 
-function loop() {
-    if (v.readyState >= 2) {
-        ctx.drawImage(v, 0, 0, 32, 32);
-        const frame = ctx.getImageData(0,0,32,32).data;
-        if (prevF) {
-            let flow = 0; for (let i = 0; i < frame.length; i += 16) flow += Math.abs(frame[i] - prevF[i]);
-            historyF.push(flow); if(historyF.length > 30) historyF.shift();
-            
-            const n = historyX.length;
-            if (n === 30) {
-                const mX = historyX.reduce((a,b)=>a+b)/n, mF = historyF.reduce((a,b)=>a+b)/n;
-                let num = 0, dX = 0, dF = 0;
-                for(let i=0; i<n; i++) {
-                    const vX = historyX[i]-mX, vF = historyF[i]-mF;
-                    num += vX*vF; dX += vX*vX; dF += vF*vF;
-                }
-                const r = Math.abs(num / Math.sqrt(dX * dF || 1));
-                rVal.textContent = r.toFixed(3);
+function draw() {
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'; // Persistent trails
+    ctx.fillRect(0, 0, w, h);
+    
+    // THE HARMONIC CONVERGENCE: Color shift as proof of life increases
+    let color = '255, 255, 255';
+    if (coherenceCount > 50) color = '100, 180, 255'; // The "Obsidian Blue" shift
+    if (coherenceCount > 100) success();
 
-                if (r > 0.92) {
-                    flash.style.display = "block";
-                    if(navigator.vibrate) navigator.vibrate(100);
-                    setTimeout(() => location.reload(), 1000); // Reset for next attestation
-                }
-            }
-        }
-        prevF = frame.slice();
-    }
-    requestAnimationFrame(loop);
+    ripples.forEach((p, i) => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(${color}, ${p.a})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        p.r += p.v; 
+        p.a -= 0.015;
+        if (p.a <= 0) ripples.splice(i, 1);
+    });
+
+    if (isLive) requestAnimationFrame(draw);
+}
+
+function success() {
+    isLive = false;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0,0,w,h);
+    if (navigator.vibrate) navigator.vibrate([30, 100]);
+    setTimeout(() => {
+        document.body.innerHTML = "<div style='color:#fff; font-family:monospace; text-align:center; margin-top:45vh; letter-spacing:5px;'>ATTESTATION_COMPLETE<br>GHOST_KEY_GENERATED</div>";
+    }, 150);
 }
 </script>
 </body>
