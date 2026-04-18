@@ -1,75 +1,174 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>LOGIFAB | BREACH v12.0</title>
     <style>
-        body { background: #000; margin: 0; overflow: hidden; touch-action: none; }
-        canvas { display: block; filter: contrast(1.8) blur(1px) brightness(1.2); }
-        #overlay { position: fixed; top: 40px; width: 100%; text-align: center; color: #fff; letter-spacing: 10px; font-size: 9px; opacity: 0.2; font-family: monospace; }
+        :root { --neon: #00ffff; --bg: #000000; --alert: #ff003c; --pass: #00ff66; }
+        * { box-sizing: border-box; touch-action: none; -webkit-font-smoothing: antialiased; }
+        body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; }
+        
+        /* CHRONOS CHAMBER (THE VAULT) */
+        #chronos { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; opacity: 1; transition: opacity 0.5s ease; position: relative; }
+        
+        /* GEOMETRIC CRACKS (CORNER TENSION) */
+        #crack-overlay { position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 5; background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><g stroke="%23FFFFFF" stroke-opacity="0.1"><line x1="0" y1="0" x2="20" y2="20"/><line x1="100%" y1="0" x2="calc(100% - 20px)" y2="20"/><line x1="0" y1="100%" x2="20" y2="calc(100% - 20px)"/><line x1="100%" y1="100%" x2="calc(100% - 20px)" y2="calc(100% - 20px)"/></g></svg>'); opacity: 0; transition: opacity 1s ease; }
+
+        /* THE APERTURE (CORE LENS) */
+        #core-ring { 
+            width: 10vw; height: 10vw; border: 1px solid rgba(255,255,255,0.05); border-radius: 50%; 
+            transition: all 0.1s cubic-bezier(0.17, 0.67, 0.83, 0.67), box-shadow 0.2s ease, transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+        }
+        
+        /* VIDEO FEED SLOSH */
+        video#visual-feed { width: 160%; height: 160%; object-fit: cover; filter: grayscale(1) contrast(1.8) brightness(0.6); mix-blend-mode: screen; position: relative; opacity: 0; transition: opacity 2s ease; }
+
+        /* POST-UNLOCK ENCLAVE (DASHBOARD) */
+        #enclave { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 40px; flex-direction: column; background: #000; z-index: 200; overflow: hidden; }
+        #enclave::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px); background-size: 30px 30px; z-index: 10; }
+        .data-header { font-size: 10px; opacity: 0.3; letter-spacing: 3px; text-transform: uppercase; z-index: 20; }
+        .data-point { font-size: 72px; font-weight: 100; letter-spacing: -3px; margin: 10px 0; z-index: 20; }
+        
+        /* JITTER GRID (POST-UNLOCK BACKGROUND) */
+        canvas#jitter-grid { position: absolute; bottom: -50px; left: 0; width: 100%; height: 150px; z-index: 15; opacity: 0.5; }
+
+        /* ACTIVE STATES */
+        .immersive-scale { width: 80vw !important; height: 80vw !important; transform: scale(1.1) !important; border-color: rgba(255,255,255,0.4) !important; box-shadow: 0 0 80px rgba(0,0,0,0.8) !important; }
+        .tension-active { opacity: 0.8 !important; }
     </style>
 </head>
 <body>
-    <div id="overlay">NEURAL_RESONANCE_v11.6</div>
-    <canvas id="c"></canvas>
+
+<div id="chronos">
+    <div id="crack-overlay"></div>
+    <div id="core-ring">
+        <video id="visual-feed" autoplay playsinline muted></video>
+    </div>
+</div>
+
+<div id="enclave">
+    <div class="data-header">Enclave_Attested</div>
+    <div id="neural-sync" class="data-point">0.0000</div>
+    <canvas id="jitter-grid"></canvas>
+    <div class="data-header" style="margin-top: auto; opacity: 0.1;">LOGIFAB PROTOCOL V12.0 // KINETIC_ROOT_VERIFIED</div>
+</div>
 
 <script>
-const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
-let w, h, ripples = [], isLive = false, coherenceCount = 0;
+const core = document.getElementById('core-ring'), feed = document.getElementById('visual-feed');
+const crackOverlay = document.getElementById('crack-overlay'), chronos = document.getElementById('chronos');
+const enclave = document.getElementById('enclave'), neuralSync = document.getElementById('neural-sync');
+const jCanvas = document.getElementById('jitter-grid'), jCtx = jCanvas.getContext('2d');
 
-window.onresize = () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; };
-window.onresize();
+let isAwake = false, lastX = 0, historyX = [], historyZ = [], historyF = [], prevFrame = null;
+const calcCanvas = document.createElement('canvas'); const calcCtx = calcCanvas.getContext('2d');
+calcCanvas.width = 64; calcCanvas.height = 64;
 
-document.body.onclick = async () => {
-    if (typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
-    isLive = true;
-    window.addEventListener('devicemotion', e => {
-        const x = e.acceleration.x || 0;
-        const y = e.acceleration.y || 0;
-        const force = Math.sqrt(x*x + y*y);
+// THE INITIALIZER (THE TAP)
+document.body.addEventListener('click', async () => {
+    if (isAwake) return;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}});
+        feed.srcObject = stream;
+        if(typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
         
-        // 8-12Hz Filter Simulation: Create ripples only on human-jitter delta
-        if (force > 0.08 && force < 0.3) {
-            ripples.push({ x: w/2, y: h/2, r: 0, a: 0.8, v: force * 8, color: '255, 255, 255' });
-            coherenceCount++;
+        isAwake = true;
+        
+        // Stage 1: IMMERSIVE INFLATION
+        core.classList.add('immersive-scale');
+        feed.style.opacity = "0.7";
+        if(navigator.vibrate) navigator.vibrate(20);
+
+        window.addEventListener('devicemotion', e => {
+            const x = e.accelerationIncludingGravity.x || 0;
+            const y = e.accelerationIncludingGravity.y || 0;
+            const z = e.acceleration.z || 0;
             
-            // THE MECHANICAL CLICK: Tactile confirmation of the shadow
-            if (coherenceCount % 5 === 0 && navigator.vibrate) navigator.vibrate(10);
-        }
-    });
-    draw();
-};
+            historyX.push(x); if(historyX.length > 40) historyX.shift();
+            historyZ.push(z); if(historyZ.length > 100) historyZ.shift();
+            
+            // KINETIC PARALLAX (v11.6 logic)
+            core.style.transform = `translate(${x * 5}px, ${y * -5}px) rotateY(${x * 3}deg) rotateX(${y * -3}deg)`;
+            feed.style.transform = `translate(${(x * 8) - 30}%, ${(y * -8) - 30}%) scale(1.3)`;
+        });
+        requestAnimationFrame(loop);
+    } catch(e) { neuralSync.textContent = "HARDWARE ERROR"; }
+});
 
-function draw() {
-    ctx.fillStyle = 'rgba(0,0,0,0.2)'; // Persistent trails
-    ctx.fillRect(0, 0, w, h);
-    
-    // THE HARMONIC CONVERGENCE: Color shift as proof of life increases
-    let color = '255, 255, 255';
-    if (coherenceCount > 50) color = '100, 180, 255'; // The "Obsidian Blue" shift
-    if (coherenceCount > 100) success();
-
-    ripples.forEach((p, i) => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(${color}, ${p.a})`;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        
-        p.r += p.v; 
-        p.a -= 0.015;
-        if (p.a <= 0) ripples.splice(i, 1);
-    });
-
-    if (isLive) requestAnimationFrame(draw);
+function calculateCorrelation(a, b) {
+    if(a.length < 10) return 0;
+    const n = a.length, m1 = a.reduce((p,c)=>p+c,0)/n, m2 = b.reduce((p,c)=>p+c,0)/n;
+    let num = 0, d1 = 0, d2 = 0;
+    for(let i=0; i<n; i++){
+        const v1 = a[i]-m1, v2 = b[i]-m2;
+        num += v1*v2; d1 += v1*v1; d2 += v2*v2;
+    }
+    return Math.abs(num / Math.sqrt(d1 * d2 || 1));
 }
 
-function success() {
-    isLive = false;
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0,0,w,h);
-    if (navigator.vibrate) navigator.vibrate([30, 100]);
+function loop() {
+    if (feed.readyState >= 2 && isAwake) {
+        calcCtx.drawImage(feed, 0, 0, 64, 64);
+        const frame = calcCtx.getImageData(0,0,64,64).data;
+        if (prevFrame) {
+            let flow = 0; for (let i = 0; i < frame.length; i += 16) flow += Math.abs(frame[i] - prevFrame[i]);
+            historyF.push(flow); if(historyF.length > 40) historyF.shift();
+            
+            const r = calculateCorrelation(historyX, historyF);
+
+            // TENSION BUILDING (THE BLUE SHIFT)
+            if (r > 0.6) {
+                const tension = (r - 0.6) * 2.5; 
+                core.style.borderColor = `rgba(0, 255, 255, ${tension})`;
+                core.style.boxShadow = `0 0 ${tension * 60}px rgba(0, 255, 255, ${tension * 0.3})`;
+                crackOverlay.style.opacity = tension * 0.5;
+            }
+
+            if (r > 0.94) triggerShatter(r);
+        }
+        prevFrame = frame.slice();
+    }
+    if(isAwake) requestAnimationFrame(loop);
+}
+
+function triggerShatter(finalR) {
+    isAwake = false; // Stop physics slosh
+    if (navigator.vibrate) navigator.vibrate([10, 50, 200]); // Final snap
+
+    // 1. THE IMPLOSION
+    core.style.transition = "transform 0.3s cubic-bezier(0.64, 0, 0.78, 0), opacity 0.2s";
+    core.style.transform = "scale(0)"; core.style.opacity = "0";
+
+    // 2. THE SHATTER FLASH & DISSOLVE
     setTimeout(() => {
-        document.body.innerHTML = "<div style='color:#fff; font-family:monospace; text-align:center; margin-top:45vh; letter-spacing:5px;'>ATTESTATION_COMPLETE<br>GHOST_KEY_GENERATED</div>";
-    }, 150);
+        const shatter = document.createElement('div');
+        shatter.style.position = 'fixed'; shatter.style.top = '0'; shatter.style.left = '0'; shatter.style.width = '100vw'; shatter.style.height = '100vh'; shatter.style.background = '#fff'; shatter.style.opacity = '1'; shatter.style.transition = 'opacity 0.8s ease'; shatter.style.zIndex = '999';
+        document.body.appendChild(shatter);
+
+        setTimeout(() => {
+            shatter.style.opacity = '0';
+            chronos.style.display = "none";
+            enclave.style.display = "flex";
+            neuralSync.textContent = finalR.toFixed(4);
+            renderJitter();
+            
+            setTimeout(() => shatter.remove(), 800);
+        }, 120); // Shatter duration
+    }, 250); // Delay for implosion
+}
+
+function renderJitter() {
+    jCtx.clearRect(0,0,jCanvas.width, jCanvas.height);
+    jCtx.beginPath(); jCtx.strokeStyle = "#fff"; jCtx.lineWidth = 1;
+    for(let i=0; i<historyZ.length; i++) {
+        const x = (i / historyZ.length) * jCanvas.width;
+        const jitter = historyZ[i] * 50;
+        const y = 75 + jitter;
+        i === 0 ? jCtx.moveTo(x, y) : jCtx.lineTo(x, y);
+    }
+    jCtx.stroke();
+    if(enclave.style.display === "flex") requestAnimationFrame(renderJitter);
 }
 </script>
 </body>
