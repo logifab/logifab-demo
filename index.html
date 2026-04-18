@@ -3,28 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LOGIFAB | GHOST v12.1</title>
+    <title>LOGIFAB | BREACH v12.5</title>
     <style>
-        body { background: #000; margin: 0; overflow: hidden; touch-action: none; font-family: monospace; }
-        canvas { display: block; filter: contrast(1.5) brightness(1.2); }
-        #status { position: fixed; top: 20px; width: 100%; text-align: center; color: #fff; font-size: 9px; letter-spacing: 4px; opacity: 0.3; pointer-events: none; }
+        body { background: #000; margin: 0; overflow: hidden; touch-action: none; font-family: 'Inter', monospace; }
+        canvas { display: block; filter: contrast(1.5) brightness(1.1); }
+        #enclave { display: none; position: fixed; inset: 0; padding: 40px; color: #fff; z-index: 10; flex-direction: column; justify-content: space-between; pointer-events: none; }
+        .stat-huge { font-size: 18vw; font-weight: 100; letter-spacing: -8px; line-height: 1; margin: 0; opacity: 0.9; }
+        .label { font-size: 10px; letter-spacing: 6px; opacity: 0.4; text-transform: uppercase; }
     </style>
 </head>
 <body>
-    <div id="status">KINETIC_SHADOW_ACTIVE // TAP_TO_INIT</div>
     <canvas id="c"></canvas>
+    <div id="enclave">
+        <div>
+            <p class="label">Attestation_Verified</p>
+            <h1 class="stat-huge" id="r-val">0.000</h1>
+        </div>
+        <p class="label" style="opacity: 0.1;">Logifab_Kinetic_Root_v12.5</p>
+    </div>
 
 <script>
 const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
-let w, h, ripples = [], isVerified = false, samples = 0, jitterAccum = 0;
-let historyZ = [];
+let w, h, ripples = [], isUnlocked = false, samples = 0, jitterSum = 0;
 
 window.onresize = () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; };
 window.onresize();
 
 document.body.onclick = async () => {
     if (typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
-    document.getElementById('status').textContent = "MONITORING_NEURAL_STOCHASTICITY";
     window.addEventListener('devicemotion', handleMotion);
     draw();
 };
@@ -32,78 +38,65 @@ document.body.onclick = async () => {
 function handleMotion(e) {
     const x = e.acceleration.x || 0;
     const y = e.acceleration.y || 0;
-    const z = e.acceleration.z || 0;
     const force = Math.sqrt(x*x + y*y);
 
-    historyZ.push(z); if(historyZ.length > 60) historyZ.shift();
-
-    // 8-12Hz HUMAN FILTER: Detecting the shadow
-    if (force > 0.04 && force < 0.25) {
-        jitterAccum += force;
-        samples++;
-        // Create the "Boomerang" Ripple
-        ripples.push({
-            x: w/2, y: h/2, r: 0, a: 0.6, 
-            v: force * 15, 
-            vx: (Math.random() - 0.5) * 2, // Random drift
-            vy: (Math.random() - 0.5) * 2,
-            bounced: false
+    // HUMAN SIGNATURE FILTER (8-12Hz)
+    if (force > 0.06 && force < 0.3) {
+        ripples.push({ 
+            x: w/2, y: h/2, r: 5, v: force * 12, a: 1, 
+            dir: 1, // 1 for expanding, -1 for boomeranging
+            color: isUnlocked ? 'rgba(0, 150, 255, 0.2)' : 'rgba(255,255,255,0.7)' 
         });
+        
+        jitterSum += force; samples++;
+        if (navigator.vibrate) navigator.vibrate(8); // Tactical micro-haptic
     }
 
-    if (samples > 80 && !isVerified) {
-        const avg = jitterAccum / samples;
-        if (avg > 0.015) triggerSuccess();
-        samples = 0; jitterAccum = 0;
+    if (samples > 120 && !isUnlocked) {
+        const score = (jitterSum / samples) * 10;
+        if (score > 0.85) triggerSuccess(score);
+        samples = 0; jitterSum = 0;
     }
 }
 
-function triggerSuccess() {
-    isVerified = true;
-    document.getElementById('status').textContent = "ATTESTATION_COMPLETE // ENCLAVE_UNLOCKED";
-    if (navigator.vibrate) navigator.vibrate([10, 50, 100]);
+function triggerSuccess(score) {
+    isUnlocked = true;
+    document.getElementById('enclave').style.display = 'flex';
+    document.getElementById('r-val').textContent = score.toFixed(3);
+    if (navigator.vibrate) navigator.vibrate([20, 100, 200]);
     
-    // THE SUCCESS FLASH
+    // SUCCESS FLASH
     ctx.fillStyle = '#fff';
     ctx.fillRect(0,0,w,h);
 }
 
 function draw() {
-    // Persistent faded state after success
-    ctx.fillStyle = isVerified ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.15)';
+    ctx.fillStyle = isUnlocked ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.2)';
     ctx.fillRect(0, 0, w, h);
     
     ripples.forEach((p, i) => {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        // Color shift based on verification
-        ctx.strokeStyle = isVerified ? `rgba(0, 150, 255, ${p.a * 0.4})` : `rgba(255, 255, 255, ${p.a})`;
-        ctx.lineWidth = isVerified ? 1 : 2;
-        ctx.stroke();
-
-        p.r += p.v;
-        p.a -= isVerified ? 0.01 : 0.02; // Slower fade after success
         
-        // THE BOOMERANG LOGIC: Bounce off edges
-        if (p.r > w/2 || p.r > h/2) {
-            p.v *= -0.8; // Reverse and dampen
-        }
-
-        if (p.a <= 0) ripples.splice(i, 1);
-    });
-
-    // REVEAL THE JITTER SHADOW (The Persistent Trace)
-    if (isVerified) {
-        ctx.beginPath();
-        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-        const step = w / historyZ.length;
-        for(let i=0; i<historyZ.length; i++) {
-            const x = i * step;
-            const y = (h/2) + (historyZ[i] * 300);
-            i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-        }
+        // INTERFERENCE LOGIC: Check for overlaps
+        let isOverlapping = ripples.some((other, j) => i !== j && Math.abs(p.r - other.r) < 2);
+        
+        ctx.strokeStyle = (isOverlapping && !isUnlocked) ? '#00e5ff' : p.color;
+        ctx.lineWidth = isOverlapping ? 2 : 1;
         ctx.stroke();
-    }
+        
+        p.r += (p.v * p.dir); // Expand or Contract
+        p.a -= isUnlocked ? 0.005 : 0.015;
+
+        // BOOMERANG PHYSICS: Reflect off the closest edge
+        const boundary = Math.min(w, h) / 1.1;
+        if (p.r > boundary && p.dir === 1) {
+            p.dir = -1; // Reverse direction
+            p.v *= 0.7; // Lose energy on bounce
+        }
+
+        if (p.a <= 0 || (p.dir === -1 && p.r <= 0)) ripples.splice(i, 1);
+    });
 
     requestAnimationFrame(draw);
 }
