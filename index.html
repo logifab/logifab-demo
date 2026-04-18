@@ -3,102 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LOGIFAB | BREACH v12.5</title>
+    <title>LOGIFAB | SONAR v13.0</title>
     <style>
-        body { background: #000; margin: 0; overflow: hidden; touch-action: none; font-family: 'Inter', monospace; }
-        canvas { display: block; filter: contrast(1.5) brightness(1.1); }
-        #enclave { display: none; position: fixed; inset: 0; padding: 40px; color: #fff; z-index: 10; flex-direction: column; justify-content: space-between; pointer-events: none; }
-        .stat-huge { font-size: 18vw; font-weight: 100; letter-spacing: -8px; line-height: 1; margin: 0; opacity: 0.9; }
-        .label { font-size: 10px; letter-spacing: 6px; opacity: 0.4; text-transform: uppercase; }
+        :root { --neon: #00e5ff; --bg: #000000; --pass: #00ff66; }
+        body { background: var(--bg); margin: 0; overflow: hidden; font-family: 'Inter', monospace; color: #fff; touch-action: none; }
+        
+        /* THE INTERROGATION CHAMBER */
+        #chamber { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; transition: opacity 0.4s ease; position: relative; }
+        #core-node { width: 4px; height: 4px; background: #fff; border-radius: 50%; box-shadow: 0 0 20px #fff; z-index: 10; transition: transform 0.1s ease; }
+        
+        /* THE SONAR ENCLAVE */
+        #enclave { display: none; position: fixed; inset: 0; background: radial-gradient(circle at center, #0a0a0a 0%, #000 100%); flex-direction: column; padding: 40px; z-index: 20; opacity: 0; animation: fadeIn 1s forwards; }
+        canvas#sonar-grid { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1; filter: drop-shadow(0 0 15px rgba(0, 229, 255, 0.2)); }
+        
+        /* DATA OVERLAYS */
+        .hud-top { position: absolute; top: 40px; left: 40px; z-index: 10; }
+        .hud-bottom { position: absolute; bottom: 40px; left: 40px; z-index: 10; }
+        .label { font-size: 9px; letter-spacing: 5px; opacity: 0.4; text-transform: uppercase; margin-bottom: 5px; }
+        .data-val { font-size: 24px; font-weight: 100; letter-spacing: 2px; }
+
+        @keyframes fadeIn { to { opacity: 1; } }
     </style>
 </head>
 <body>
-    <canvas id="c"></canvas>
-    <div id="enclave">
-        <div>
-            <p class="label">Attestation_Verified</p>
-            <h1 class="stat-huge" id="r-val">0.000</h1>
-        </div>
-        <p class="label" style="opacity: 0.1;">Logifab_Kinetic_Root_v12.5</p>
+
+<div id="chamber">
+    <div id="core-node"></div>
+</div>
+
+<div id="enclave">
+    <canvas id="sonar-grid"></canvas>
+    <div class="hud-top">
+        <div class="label">Bio-Acoustic_Spectrum</div>
+        <div class="data-val" id="damping-ratio">0.000</div>
     </div>
+    <div class="hud-bottom">
+        <div class="label">Kinetic_Salt_Verified</div>
+        <div class="label" style="color: var(--neon); opacity: 0.8;">ENCLAVE_ACTIVE</div>
+    </div>
+</div>
 
 <script>
-const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
-let w, h, ripples = [], isUnlocked = false, samples = 0, jitterSum = 0;
+const chamber = document.getElementById('chamber'), coreNode = document.getElementById('core-node');
+const enclave = document.getElementById('enclave'), dampVal = document.getElementById('damping-ratio');
+const canvas = document.getElementById('sonar-grid'), ctx = canvas.getContext('2d');
+let w, h, isVerified = false;
+let echoData = []; // Stores the biological dampening curve
 
 window.onresize = () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; };
 window.onresize();
 
 document.body.onclick = async () => {
+    if (isVerified) return;
     if (typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
-    window.addEventListener('devicemotion', handleMotion);
-    draw();
+    initiateKineticSalt();
 };
 
-function handleMotion(e) {
-    const x = e.acceleration.x || 0;
-    const y = e.acceleration.y || 0;
-    const force = Math.sqrt(x*x + y*y);
-
-    // HUMAN SIGNATURE FILTER (8-12Hz)
-    if (force > 0.06 && force < 0.3) {
-        ripples.push({ 
-            x: w/2, y: h/2, r: 5, v: force * 12, a: 1, 
-            dir: 1, // 1 for expanding, -1 for boomeranging
-            color: isUnlocked ? 'rgba(0, 150, 255, 0.2)' : 'rgba(255,255,255,0.7)' 
-        });
-        
-        jitterSum += force; samples++;
-        if (navigator.vibrate) navigator.vibrate(8); // Tactical micro-haptic
-    }
-
-    if (samples > 120 && !isUnlocked) {
-        const score = (jitterSum / samples) * 10;
-        if (score > 0.85) triggerSuccess(score);
-        samples = 0; jitterSum = 0;
-    }
-}
-
-function triggerSuccess(score) {
-    isUnlocked = true;
-    document.getElementById('enclave').style.display = 'flex';
-    document.getElementById('r-val').textContent = score.toFixed(3);
-    if (navigator.vibrate) navigator.vibrate([20, 100, 200]);
+async function initiateKineticSalt() {
+    // 1. GENERATE THE SALT
+    const saltPattern = [15, 20, 15]; // 15ms pulse, 20ms pause, 15ms pulse
     
-    // SUCCESS FLASH
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0,0,w,h);
-}
+    // VISUAL PING (The Outward Sonar)
+    coreNode.style.transform = "scale(100)";
+    coreNode.style.opacity = "0";
+    coreNode.style.transition = "transform 0.5s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.5s ease-out";
 
-function draw() {
-    ctx.fillStyle = isUnlocked ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.2)';
-    ctx.fillRect(0, 0, w, h);
-    
-    ripples.forEach((p, i) => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        
-        // INTERFERENCE LOGIC: Check for overlaps
-        let isOverlapping = ripples.some((other, j) => i !== j && Math.abs(p.r - other.r) < 2);
-        
-        ctx.strokeStyle = (isOverlapping && !isUnlocked) ? '#00e5ff' : p.color;
-        ctx.lineWidth = isOverlapping ? 2 : 1;
-        ctx.stroke();
-        
-        p.r += (p.v * p.dir); // Expand or Contract
-        p.a -= isUnlocked ? 0.005 : 0.015;
+    if (navigator.vibrate) navigator.vibrate(saltPattern);
+    const saltStartTime = performance.now();
 
-        // BOOMERANG PHYSICS: Reflect off the closest edge
-        const boundary = Math.min(w, h) / 1.1;
-        if (p.r > boundary && p.dir === 1) {
-            p.dir = -1; // Reverse direction
-            p.v *= 0.7; // Lose energy on bounce
+    // 2. THE INTERROGATION (Listening for the Echo)
+    const handleEcho = (e) => {
+        const deltaT = performance.now() - saltStartTime;
+        const rawInertia = Math.abs(e.acceleration.x || 0) + Math.abs(e.acceleration.y || 0);
+        
+        echoData.push(rawInertia);
+
+        // We analyze the echo window (approx 200ms after pulse)
+        if (deltaT > 200 && !isVerified) {
+            window.removeEventListener('devicemotion', handleEcho);
+            
+            // Calculate the Biological Damping (Average energy remaining)
+            const avgEnergy = echoData.reduce((a, b) => a + b, 0) / echoData.length;
+            
+            // HUMANS DAMPEN (< 0.8). STANDS RING (> 2.0).
+            if (avgEnergy > 0.01 && avgEnergy < 0.8) {
+                triggerSuccessSequence(avgEnergy);
+            } else {
+                // FAILED / MECHANICAL
+                coreNode.style.background = "var(--alert)";
+                coreNode.style.transform = "scale(1)";
+                coreNode.style.opacity = "1";
+            }
         }
+    };
 
-        if (p.a <= 0 || (p.dir === -1 && p.r <= 0)) ripples.splice(i, 1);
-    });
+    window.addEventListener('devicemotion', handleEcho);
+}
 
-    requestAnimationFrame(draw);
+function triggerSuccessSequence(energy) {
+    isVerified = true;
+    if (navigator.vibrate) navigator.vibrate([30, 100]); // Final locking clunk
+
+    // THE SHATTER TO ENCLAVE
+    chamber.style.display = "none";
+    enclave.style.display = "flex";
+    dampVal.textContent = energy.toFixed(4) + " µJ";
+    
+    // Inject realistic chaos into the echo data for the visualizer
+    for(let i=0; i<360; i++) {
+        echoData[i] = energy * (0.5 + Math.random() * 0.5); 
+    }
+    
+    renderSonar();
+}
+
+let scanAngle = 0;
+function renderSonar() {
+    ctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2;
+    const baseRadius = Math.min(w, h) * 0.25;
+
+    // DRAW THE RADIAL GRID
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // DRAW THE BIO-ACOUSTIC SPECTRUM (Deformed Ring)
+    ctx.beginPath();
+    for (let i = 0; i <= 360; i++) {
+        const angle = (i * Math.PI) / 180;
+        // The radius deforms based on the "damping" data
+        const r = baseRadius + (echoData[i % 360] * 300); 
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.8)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // THE SONAR SWEEP LINE
+    scanAngle += 0.02;
+    const sweepX = cx + (baseRadius * 1.5) * Math.cos(scanAngle);
+    const sweepY = cy + (baseRadius * 1.5) * Math.sin(scanAngle);
+    
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(sweepX, sweepY);
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.5)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // SWEEP TRAIL
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, baseRadius * 1.5, scanAngle - 0.5, scanAngle, false);
+    ctx.fillStyle = "rgba(0, 229, 255, 0.05)";
+    ctx.fill();
+
+    requestAnimationFrame(renderSonar);
 }
 </script>
 </body>
